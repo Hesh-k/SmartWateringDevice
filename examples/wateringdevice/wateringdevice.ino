@@ -4,19 +4,19 @@
 
 #define BLYNK_PRINT Serial
 
-#include <WiFi.h>
-#include <WiFiClient.h>
-#include <BlynkSimpleEsp32.h>
+#include <ESP8266WiFi.h>
+#include <BlynkSimpleEsp8266.h>
+#include <DNSServer.h>
 #include <WiFiManager.h>
 #include <Button2.h>
+#include <Ticker.h>
 
 char auth[] = BLYNK_AUTH_TOKEN;
 char ssid[40];
 char pass[40];
 
 Button2 physicalButton = Button2(0, INPUT_PULLUP);  // Change '0' to the actual button pin
-
-BlynkTimer timer;
+Ticker timer;
 
 int inPin = D7;
 int modePin = D9;
@@ -34,7 +34,6 @@ void configModeCallback (WiFiManager *myWiFiManager) {
 
 void setupWiFiManager() {
   WiFiManager wm;
-  wm.setConfigPortalTimeout(180);  // Config portal stays open for 3 minutes
   wm.setAPCallback(configModeCallback);
   
   if (!wm.autoConnect("AutoConnectAP")) {
@@ -79,21 +78,22 @@ void Soilmoisture() {
   delay(100);
 }
 
+void buttonPress() {
+  Serial.println("Button pressed! Resetting WiFi settings...");
+  WiFiManager wm;
+  wm.resetSettings();
+  ESP.restart();
+}
+
 void setup() {
   Serial.begin(115200);
   
-  pinMode(BUTTON_PIN, INPUT_PULLUP);
-  physicalButton.setPressedHandler([](Button2 &btn) {
-    Serial.println("Button pressed! Resetting WiFi settings...");
-    WiFiManager wm;
-    wm.resetSettings();
-    ESP.restart();
-  });
-
   setupWiFiManager();
   
+  physicalButton.setPressedHandler(buttonPress);
+  
   Blynk.begin(auth, ssid, pass);
-  timer.setInterval(1000L, myTimerEvent);
+  timer.attach_ms(1000, myTimerEvent);
   pinMode(inPin, INPUT);
   pinMode(modePin, OUTPUT);
   pinMode(Control, OUTPUT);
@@ -104,6 +104,6 @@ void setup() {
 void loop() {
   physicalButton.loop();
   Blynk.run();
-  timer.run();
+  timer.update();
   Soilmoisture();
 }
